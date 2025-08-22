@@ -6,47 +6,46 @@ trigger:
       - master
 
 pool:
-  vmImage: "ubuntu-latest"
+  vmImage: ubuntu-latest
 
 variables:
-  pythonVersion: "3.12"
-  # Set this to your Docker Hub repo, e.g. "yourname/flask-demo"
-  dockerHubRepo: "$(DOCKER_HUB_REPO)"  # optionally set as pipeline variable or replace with a literal
-  imageTagSha: "$(Build.SourceVersion)"
-  # Name of the Docker Hub service connection you create in Project Settings → Service connections
-  dockerServiceConnection: "dockerhub-sc"
+  pythonVersion: '3.12'
+  # set this variable in the pipeline UI: DOCKER_HUB_REPO = yourname/flask-demo
+  dockerHubRepo: '$(DOCKER_HUB_REPO)'
+  imageTagSha: '$(Build.SourceVersion)'
+  # Name of the Docker Hub service connection (Project Settings → Service connections)
+  dockerServiceConnection: 'dockerhub-sc'
 
 steps:
-  - checkout: self
-    fetchDepth: 0
+- checkout: self
+  fetchDepth: 0
 
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: "$(pythonVersion)"
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '$(pythonVersion)'
 
- - script: |
-      python -m pip install --upgrade pip
-      pip install -r requirements-dev.txt
-      export PYTHONPATH=.
-      pytest --junitxml=test-results/pytest.xml --cov=.
-    displayName: "Install deps & run pytest"
+- script: |
+    python -m pip install --upgrade pip
+    pip install -r requirements-dev.txt
+    export PYTHONPATH=.
+    pytest --junitxml=test-results/pytest.xml --cov=.
+  displayName: 'Install deps & run pytest'
 
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: 'test-results/pytest.xml'
+    testRunTitle: 'PyTest Results'
+    failTaskOnFailedTests: true
 
-  - task: PublishTestResults@2
-    inputs:
-      testResultsFormat: "JUnit"
-      testResultsFiles: "test-results/pytest.xml"
-      testRunTitle: "PyTest Results"
-      failTaskOnFailedTests: true
-
-  # Build & Push using Docker@2 (handles login via service connection)
-  - task: Docker@2
-    displayName: "Build and Push Docker image"
-    inputs:
-      containerRegistry: "$(dockerServiceConnection)"
-      repository: "$(dockerHubRepo)"
-      command: "buildAndPush"
-      Dockerfile: "**/Dockerfile"
-      tags: |
-        latest
-        $(imageTagSha)
+- task: Docker@2
+  displayName: 'Build and Push Docker image'
+  inputs:
+    containerRegistry: '$(dockerServiceConnection)'
+    repository: '$(dockerHubRepo)'
+    command: 'buildAndPush'
+    Dockerfile: 'Dockerfile'
+    buildContext: '$(Build.SourcesDirectory)'
+    tags: |
+      latest
+      $(imageTagSha)
